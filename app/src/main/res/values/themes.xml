@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Base application theme. -->
+    <style name="Theme.ColorBloom" parent="android:Theme.Material.Light.NoActionBar">
+        <!-- Customize your theme here. -->
+        <!-- For Compose, primary theming is done in Kotlin, but this can be used for system UI like status bar -->
+    </style>
+</resources>
