@@ -29,6 +29,15 @@ class GameViewModel : ViewModel() {
     private val _score = mutableStateOf(0)
     val score: State<Int> = _score
 
+    private var currentComboCount = 0
+    private val _comboMultiplier = mutableStateOf(1)
+    val comboMultiplier: State<Int> = _comboMultiplier
+
+    private val _lives = mutableStateOf(3)
+    val lives: State<Int> = _lives
+    private val _isGameOver = mutableStateOf(false)
+    val isGameOver: State<Boolean> = _isGameOver
+
     private val activeBloomJobs = mutableMapOf<Int, Job>()
 
     // Animation Durations
@@ -72,6 +81,9 @@ class GameViewModel : ViewModel() {
 
     // Public function to trigger a bloom on a random available square
     fun triggerRandomBloom() {
+        if (_isGameOver.value) {
+            return // Don't start new blooms if game is over
+        }
         val idleSquares = _grid.value.flatten().filter { it.currentBloomState == BloomState.IDLE && !activeBloomJobs.containsKey(it.id) }
         if (idleSquares.isEmpty()) {
             // println("No idle squares available to bloom.")
@@ -98,6 +110,8 @@ class GameViewModel : ViewModel() {
     }
 
     private suspend fun animateSquareBloom(squareId: Int, targetBloomColor: Color) {
+        if (_isGameOver.value) return // Additional safety check
+
         val square = findSquareById(squareId) ?: return // Find square by ID now
         val initialColor = square.initialColor // Cache initial color
 
@@ -164,35 +178,60 @@ class GameViewModel : ViewModel() {
     }
 
     fun handleSquareTap(squareId: Int) {
+        if (_isGameOver.value) {
+            println("Game Over. Tap ignored.")
+            return
+        }
+
         val square = findSquareById(squareId) ?: return
 
-        val pointsEarned: Int
-        val tapLogMessage: String
-
-        when (square.currentBloomState) {
-            BloomState.PEAK -> {
-                pointsEarned = 100
-                tapLogMessage = "Tap: Perfect on square $squareId. Score: +$pointsEarned"
-            }
-            BloomState.BLOOMING -> {
-                pointsEarned = 50
-                tapLogMessage = "Tap: Early on square $squareId. Score: +$pointsEarned"
-            }
-            BloomState.FADING -> {
-                pointsEarned = 50
-                tapLogMessage = "Tap: Late on square $squareId. Score: +$pointsEarned"
-            }
-            BloomState.IDLE -> {
-                pointsEarned = 0
-                tapLogMessage = "Tap: Miss on idle square $squareId. Score: +$pointsEarned"
-            }
-            // No else needed if all enum cases are covered, or handle unexpected states if necessary
+        val tapQuality = when (square.currentBloomState) {
+            BloomState.PEAK -> "Perfect"
+            BloomState.BLOOMING -> "Early"
+            BloomState.FADING -> "Late"
+            BloomState.IDLE -> "MissOnIdle"
+            // else -> "Unknown" // Should not happen with current states
         }
-        println(tapLogMessage)
-        _score.value += pointsEarned
 
-        // If the square was actively blooming/peaking/fading
-        if (square.currentBloomState != BloomState.IDLE) {
+        // Update Combo based on tap quality
+        if (tapQuality == "Perfect") {
+            currentComboCount++
+        } else {
+            // Any non-perfect tap on an active square, or a miss on idle, breaks combo.
+            currentComboCount = 0
+        }
+        _comboMultiplier.value = currentComboCount + 1 // e.g., 0 perfects = x1, 1 perfect = x2
+
+        // Calculate points (base points)
+        val basePointsEarned = when (tapQuality) {
+            "Perfect" -> 100
+            "Early", "Fading" -> 50
+            else -> 0 // MissOnIdle (includes MissOnIdle specifically)
+        }
+
+        val finalPointsEarned = basePointsEarned * _comboMultiplier.value
+        _score.value += finalPointsEarned
+
+        // Logging
+        println("Tap: $tapQuality on square $squareId. Base: $basePointsEarned, Combo: x${_comboMultiplier.value}, Final: $finalPointsEarned. Score: ${_score.value}")
+
+        // Life and Game Over Logic for MissOnIdle
+        if (tapQuality == "MissOnIdle") {
+            _lives.value = (_lives.value - 1).coerceAtLeast(0)
+            println("Life lost on Miss! Lives remaining: ${_lives.value}")
+            if (_lives.value == 0) {
+                _isGameOver.value = true
+                println("Game Over!")
+                activeBloomJobs.forEach { (_, job) -> job.cancel() }
+                activeBloomJobs.clear()
+                println("All animations cancelled due to Game Over.")
+                updateGridSnapshot() // Reflect any visual changes from cancellations
+                return // Exit: No further actions like triggering blooms
+            }
+        }
+
+        // If the square was actively blooming/peaking/fading (i.e., not a MissOnIdle)
+        if (tapQuality != "MissOnIdle") {
             activeBloomJobs.remove(squareId)?.cancel() // Cancel its animation job
 
             // Immediately reset its state for visual feedback
@@ -201,9 +240,11 @@ class GameViewModel : ViewModel() {
             square.targetColor = null
             updateGridSnapshot()
 
-            triggerRandomBloom() // Spawn a new bloom to replace the tapped one
+            if (!_isGameOver.value) { // Only trigger new bloom if game is not over
+                triggerRandomBloom() // Spawn a new bloom to replace the tapped one
+            }
         }
-        // If an IDLE square was tapped (a pure miss), we do nothing further here.
-        // No job to cancel, state is already IDLE, and we don't trigger a new bloom.
+        // If an IDLE square was tapped (a "MissOnIdle"), combo is broken, score is 0 for this tap.
+        // Life is lost. If lives reach 0, game over. No new bloom is triggered by a miss.
     }
 }

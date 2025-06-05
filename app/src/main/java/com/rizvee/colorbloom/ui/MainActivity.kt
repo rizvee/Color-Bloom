@@ -29,6 +29,9 @@ class MainActivity : ComponentActivity() {
                     GameScreen(
                         gridState = gameViewModel.grid,
                         scoreState = gameViewModel.score,
+                        comboMultiplierState = gameViewModel.comboMultiplier,
+                        livesState = gameViewModel.lives,
+                        isGameOverState = gameViewModel.isGameOver, // New argument
                         onSquareTap = { squareId -> gameViewModel.handleSquareTap(squareId) }
                     )
                 }
