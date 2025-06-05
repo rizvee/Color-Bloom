@@ -25,8 +25,12 @@ class MainActivity : ComponentActivity() {
                 ) {
                     // Obtain the ViewModel instance
                     val gameViewModel: GameViewModel = viewModel()
-                    // Display the BloomingGrid
-                    BloomingGrid(gridState = gameViewModel.grid)
+                    // Display the GameScreen, passing grid state, score state, and tap handler
+                    GameScreen(
+                        gridState = gameViewModel.grid,
+                        scoreState = gameViewModel.score,
+                        onSquareTap = { squareId -> gameViewModel.handleSquareTap(squareId) }
+                    )
                 }
             }
         }

@@ -7,44 +7,82 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Text // New import
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.State
-//import androidx.compose.runtime.mutableStateOf // For preview
-//import androidx.compose.runtime.remember // For preview
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-//import androidx.compose.ui.graphics.Color // For preview
-//import androidx.compose.ui.tooling.preview.Preview // For preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp // New import
 import com.rizvee.colorbloom.game.Square
-//import com.rizvee.colorbloom.ui.theme.ColorBloomTheme // For preview
+
+
+@Composable
+fun GameScreen(
+    gridState: State<List<List<Square>>>,
+    scoreState: State<Int>,
+    onSquareTap: (squareId: Int) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier.fillMaxSize(),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            text = "Score: ${scoreState.value}",
+            fontSize = 24.sp,
+            modifier = Modifier.padding(16.dp).align(Alignment.CenterHorizontally) // Increased padding
+        )
+        BloomingGrid(
+            gridState = gridState,
+            onSquareTap = onSquareTap,
+            // Let BloomingGrid fill the remaining space, or define specific size
+            modifier = Modifier.padding(8.dp) // Keep padding for the grid itself
+        )
+    }
+}
+
 
 @Composable
 fun BloomingGrid(
     gridState: State<List<List<Square>>>,
+    onSquareTap: (squareId: Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val grid = gridState.value // Access the list of squares
+    val grid = gridState.value
 
     if (grid.isEmpty()) {
-        // Handle empty grid state, maybe show a loading indicator or default message
-        // For now, just return to avoid crashing.
         return
     }
 
+    // Changed modifier for BloomingGrid's Column to not fill max size from GameScreen directly,
+    // but to be centered. GameScreen's Column handles overall fillMaxSize.
     Column(
-        modifier = modifier.fillMaxSize().padding(8.dp),
+        modifier = modifier, // Use passed modifier, e.g. padding from GameScreen
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
         grid.forEach { rowOfSquares ->
             Row(
-                horizontalArrangement = Arrangement.Center
+                // Removed fixed Arrangement.Center to allow SquareView's weight to work effectively
+                // horizontalArrangement = Arrangement.SpaceEvenly, // Alternative for spacing
+                modifier = Modifier.padding(vertical = 2.dp) // Add some vertical padding between rows
             ) {
                 rowOfSquares.forEach { square ->
-                    // Pass the weight modifier here to ensure equal sizing within the Row
-                    SquareView(square = square, modifier = Modifier.weight(1f))
+                    SquareView(
+                        square = square,
+                        onTap = { onSquareTap(square.id) },
+                        modifier = Modifier.weight(1f) // Weight is crucial for equal distribution
+                    )
                 }
             }
         }
@@ -54,37 +92,28 @@ fun BloomingGrid(
 @Composable
 fun SquareView(
     square: Square,
-    modifier: Modifier = Modifier // Modifier passed from the caller, including weight
+    onTap: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     Box(
-        modifier = modifier // Use the modifier passed, which includes .weight(1f)
-            .padding(2.dp) // Spacing between squares
+        modifier = modifier // This already includes .weight(1f) from BloomingGrid
             .aspectRatio(1f) // Keep squares as squares
+            .padding(2.dp) // Spacing between squares (internal padding for the clickable area)
             .background(square.currentColor)
-            // .weight(1f) // This was moved to the caller to be applied to the SquareView itself within the Row
+            .clickable { onTap() }
     ) {
-        // Content inside the square, e.g., score indicators later
-        // For now, it's just a colored box.
+        // Content inside the square
     }
 }
 
-// Preview for BloomingGrid (optional, but good for development)
+// Previews would need to be updated to provide scoreState for GameScreen
+// For example:
 // @Preview(showBackground = true)
 // @Composable
-// fun BloomingGridPreview() {
-//     // This preview would need a mock GameViewModel or a sample grid state
-//     // For simplicity, we'll skip the complex preview setup in this subtask,
-//     // but it's good practice for actual development.
-//     val previewGrid = remember {
-//         mutableStateOf(
-//             listOf(
-//                 listOf(Square(0,0,0, initialColor = Color.Red), Square(1,0,1, initialColor = Color.Green), Square(2,0,2, initialColor = Color.Blue)),
-//                 listOf(Square(3,1,0, initialColor = Color.Yellow), Square(4,1,1, initialColor = Color.Cyan), Square(5,1,2, initialColor = Color.Magenta)),
-//                 listOf(Square(6,2,0, initialColor = Color.Gray), Square(7,2,1, initialColor = Color.Black), Square(8,2,2, initialColor = Color.LightGray))
-//             )
-//         )
+// fun GameScreenPreview() {
+//     val previewGrid = remember { /* ... complex grid state ... */ }
+//     val previewScore = remember { mutableStateOf(1000) }
+//     ColorBloomTheme {
+//         GameScreen(gridState = previewGrid, scoreState = previewScore, onSquareTap = {})
 //     }
-//    ColorBloomTheme {
-//        BloomingGrid(gridState = previewGrid)
-//    }
 // }
